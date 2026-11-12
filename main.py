@@ -62,6 +62,13 @@ def fetch_showtimes(target_date: str) -> dict:
 
     print(f"HTTP status: {response.status_code}")
 
+    if response.status_code == 403:
+        print("Request blocked by BookMyShow.")
+        print("Response headers:", dict(response.headers))
+        print("Response body:", response.text[:1000])
+
+
+
     response.raise_for_status()
 
     try:
