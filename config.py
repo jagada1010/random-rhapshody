@@ -13,7 +13,7 @@ Only theatre codes in active_theatres_for_alert are monitored.
 
 ACTIVE_PROFILE = "SANITY_TEST"
 
-active_theatres_for_alert = ["AC", "ART", "AAA"]
+active_theatres_for_alert = ["AC", "PCX", "ART", "AAA"]
 
 REGION_CODE = "HYD"
 REGION_SLUG = "hyderabad"
