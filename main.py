@@ -952,7 +952,7 @@ def main() -> None:
             "\nNo new, reappeared or changed sessions. "
             "No email will be sent."
         )
-        return
+        raise SystemExit(0)
 
     # Email contains all currently listed sessions for the dates
     # configured in this run, not just the latest delta.
