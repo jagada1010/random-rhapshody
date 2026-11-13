@@ -250,11 +250,49 @@
           "last_seen": "2026-11-13T23:25:45+05:30",
           "last_change": "2026-11-13T23:25:45+05:30",
           "status": "currently_listed"
+        },
+        "prasads_pcx|20261117|258845": {
+          "target_id": "prasads_pcx",
+          "theatre_name": "Prasads Multiplex",
+          "venue_code": "PRHN",
+          "format_label": "PCX",
+          "movie": "Ramayana",
+          "language": "Telugu",
+          "dimension": "3D",
+          "event_code": "ET00523155",
+          "session_id": "258845",
+          "date": "20261117",
+          "time": "11:50 AM",
+          "screen": "SCREEN 6",
+          "attributes": "PCX Screen",
+          "first_seen": "2026-11-13T23:27:51+05:30",
+          "last_seen": "2026-11-13T23:27:51+05:30",
+          "last_change": "2026-11-13T23:27:51+05:30",
+          "status": "currently_listed"
+        },
+        "prasads_pcx|20261117|258847": {
+          "target_id": "prasads_pcx",
+          "theatre_name": "Prasads Multiplex",
+          "venue_code": "PRHN",
+          "format_label": "PCX",
+          "movie": "Ramayana",
+          "language": "Telugu",
+          "dimension": "3D",
+          "event_code": "ET00523155",
+          "session_id": "258847",
+          "date": "20261117",
+          "time": "07:30 PM",
+          "screen": "SCREEN 6",
+          "attributes": "PCX Screen",
+          "first_seen": "2026-11-13T23:27:51+05:30",
+          "last_seen": "2026-11-13T23:27:51+05:30",
+          "last_change": "2026-11-13T23:27:51+05:30",
+          "status": "currently_listed"
         }
       },
       "pending_changes": [],
       "last_sleep_email_at": null,
-      "last_successful_run": "2026-11-13T23:25:45+05:30"
+      "last_successful_run": "2026-11-13T23:27:51+05:30"
     }
   }
 }
