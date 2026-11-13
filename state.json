@@ -266,7 +266,7 @@
           "screen": "SCREEN 6",
           "attributes": "PCX Screen",
           "first_seen": "2026-11-13T23:27:51+05:30",
-          "last_seen": "2026-11-14T03:20:35+05:30",
+          "last_seen": "2026-11-14T03:30:47+05:30",
           "last_change": "2026-11-13T23:27:51+05:30",
           "status": "currently_listed"
         },
@@ -285,14 +285,14 @@
           "screen": "SCREEN 6",
           "attributes": "PCX Screen",
           "first_seen": "2026-11-13T23:27:51+05:30",
-          "last_seen": "2026-11-14T03:20:35+05:30",
+          "last_seen": "2026-11-14T03:30:47+05:30",
           "last_change": "2026-11-13T23:27:51+05:30",
           "status": "currently_listed"
         }
       },
       "pending_changes": [],
       "last_sleep_email_at": null,
-      "last_successful_run": "2026-11-14T03:20:35+05:30"
+      "last_successful_run": "2026-11-14T03:30:47+05:30"
     }
   }
 }
