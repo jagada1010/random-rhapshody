@@ -1,9 +1,9 @@
 name: BookMyShow Monitor
 
 on:
-  schedule:
+  #schedule:
     # GitHub cron uses UTC. Every 10 minutes, including during sleep hours.
-    - cron: "*/10 * * * *"
+    #- cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
