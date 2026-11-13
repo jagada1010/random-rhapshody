@@ -31,7 +31,7 @@ SANITY_TEST = {
     "movie_title": "Ramayana",
     "movie_aliases": [],
     "language": "Telugu",
-    "target_dates": ["20261116"],
+    "target_dates": ["20261115"],
 }
 
 
