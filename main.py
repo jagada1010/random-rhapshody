@@ -15,6 +15,7 @@ import requests
 from dotenv import load_dotenv
 
 import config
+from fetcher import fetch_json
 from state_store import MonitorState
 
 
@@ -100,7 +101,9 @@ def validate_date_format(date_code: str) -> bool:
         return False
 
 
-def validate_response_date(data: dict, target_date: str) -> list:
+def validate_response_date(
+    data: dict, target_date: str, venue_code: str | None = None
+) -> list:
     """
     Return only ShowDetails entries matching the requested date.
 
@@ -134,6 +137,26 @@ def validate_response_date(data: dict, target_date: str) -> list:
             "Rejecting fallback data."
         )
 
+    # The current BookMyShow schema puts events directly under each
+    # ShowDetails entry, not under Venues. Validate that schema before
+    # allowing this snapshot to update the persistent archive.
+    for detail in matching_details:
+        if not isinstance(detail.get("Event"), list):
+            raise RuntimeError(
+                f"Invalid response for {venue_code or 'venue'} / {target_date}: "
+                "ShowDetails entry is missing its Event list."
+            )
+
+        if venue_code:
+            venue = detail.get("Venues")
+            returned_venue = venue.get("VenueCode") if isinstance(venue, dict) else None
+            if str(returned_venue or "").upper() != venue_code.upper():
+                raise RuntimeError(
+                    f"Venue mismatch. Requested {venue_code}, "
+                    f"but response contained {returned_venue!r}. "
+                    "Rejecting response."
+                )
+
     return matching_details
 
 
@@ -142,7 +165,7 @@ def validate_response_date(data: dict, target_date: str) -> list:
 # ============================================================
 
 def fetch_showtimes(target_date: str, venue_code: str) -> dict:
-    """Fetch showtimes for one venue and one requested date."""
+    """Fetch one venue/date through ScraperAPI and return BookMyShow JSON."""
 
     params = {
         "dateCode": target_date,
@@ -150,45 +173,18 @@ def fetch_showtimes(target_date: str, venue_code: str) -> dict:
         "regionCode": config.REGION_CODE,
     }
 
-    headers = {
-        "User-Agent": (
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/157.0.0.0 Safari/537.36"
-        ),
-        "Accept": "application/json, text/plain, */*",
-        "Referer": (
-            "https://in.bookmyshow.com/cinemas/"
-            f"{config.REGION_CODE}/"
-            f"buytickets/{venue_code}/{target_date}"
-        ),
-    }
-
-    print(f"Fetching {venue_code} for {target_date}...")
-
-    response = requests.get(
-        config.API_URL,
-        params=params,
-        headers=headers,
-        timeout=config.REQUEST_TIMEOUT,
+    print(
+        f"Fetching {venue_code} for {target_date} "
+        "through ScraperAPI..."
     )
 
-    print(f"HTTP status: {response.status_code}")
-    response.raise_for_status()
+    data = fetch_json(
+        target_url=config.API_URL,
+        params=params,
+        timeout=getattr(config, "SCRAPERAPI_TIMEOUT", 90),
+    )
 
-    try:
-        data = response.json()
-    except requests.exceptions.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"BookMyShow returned invalid JSON for venue {venue_code}."
-        ) from exc
-
-    if not isinstance(data, dict):
-        raise RuntimeError(
-            f"Unexpected response format for venue {venue_code}: "
-            "root is not an object."
-        )
-
+    print(f"Successfully received JSON for {venue_code} / {target_date}.")
     return data
 
 
@@ -811,7 +807,7 @@ def _archive_email_body(movie_title: str, archive: list, changes: list, now: dat
         lines.extend([
             f"{record.get('theatre_name', 'Theatre')} | {record.get('format_label', '')}",
             f"  Date: {record.get('date', '')} | Time: {record.get('time', '')} | Screen: {record.get('screen', '')}",
-            f"  Status: {status} | First seen: {record.get('first_seen', '')} | Last seen: {record.get('last_seen', '')}",
+            f"  Status: {status} | First seen: {record.get('first_seen', '')} | Last seen: {record.get('last_seen', '')} | Last change: {record.get('last_change', '')}",
             f"  Booking: {get_booking_url(record)}",
             "",
         ])
@@ -853,7 +849,7 @@ def main() -> None:
         print(f"\n{'=' * 65}\nCHECKING DATE: {target_date}\n{'=' * 65}")
         for venue_code in venue_codes:
             data = fetch_showtimes(target_date, venue_code)
-            matching_details = validate_response_date(data, target_date)
+            matching_details = validate_response_date(data, target_date, venue_code)
             venue_targets = [target for target in targets if target["venue_code"] == venue_code]
             for target in venue_targets:
                 shows = identify_shows(matching_details, target_date, target, profile)

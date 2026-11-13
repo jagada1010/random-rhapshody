@@ -76,16 +76,25 @@ class MonitorState:
             existing = archive.get(key)
             if existing is None:
                 record = deepcopy(show)
-                record.update({"first_seen": now_text, "last_seen": now_text, "status": "currently_listed"})
+                record.update({
+                    "first_seen": now_text,
+                    "last_seen": now_text,
+                    "last_change": now_text,
+                    "status": "currently_listed",
+                })
                 archive[key] = record
                 if not first_snapshot:
                     pending.append({"type": "new", "timestamp": now_text, "show": deepcopy(show)})
                 continue
 
             was_not_listed = existing.get("status") != "currently_listed"
-            if was_not_listed and not first_snapshot:
-                pending.append({"type": "reappeared", "timestamp": now_text, "show": deepcopy(show)})
+            if was_not_listed:
+                existing["last_change"] = now_text
+                if not first_snapshot:
+                    pending.append({"type": "reappeared", "timestamp": now_text, "show": deepcopy(show)})
             changed_fields = [field for field in self.TRACKED_FIELDS if str(existing.get(field, "")) != str(show.get(field, ""))]
+            if changed_fields:
+                existing["last_change"] = now_text
             if changed_fields and not first_snapshot:
                 pending.append({
                     "type": "updated", "timestamp": now_text,
@@ -100,8 +109,9 @@ class MonitorState:
 
         # Only a fully successful snapshot can mark previously known shows absent.
         for key, record in archive.items():
-            if key not in current_keys:
+            if key not in current_keys and record.get("status") != "not_currently_listed":
                 record["status"] = "not_currently_listed"
+                record["last_change"] = now_text
 
         profile["initialized"] = True
         profile["last_successful_run"] = now_text

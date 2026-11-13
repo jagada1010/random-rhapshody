@@ -45,6 +45,7 @@ jobs:
         id: monitor
         continue-on-error: true
         env:
+          SCRAPERAPI_API_KEY: ${{ secrets.SCRAPERAPI_API_KEY }}
           BMS_EMAIL_SENDER: ${{ secrets.BMS_EMAIL_SENDER }}
           BMS_EMAIL_RECIPIENTS: ${{ secrets.BMS_EMAIL_RECIPIENTS }}
           BMS_GMAIL_APP_PASSWORD: ${{ secrets.BMS_GMAIL_APP_PASSWORD }}

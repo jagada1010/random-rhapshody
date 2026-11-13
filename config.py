@@ -1,11 +1,10 @@
-"""
-BookMyShow monitor configuration.
+"""BookMyShow monitor configuration.
 
-Choose which movie profile to run with ACTIVE_PROFILE:
-    "SANITY_TEST" -> Ramayana / Telugu
-    "REAL_DATA"   -> Avengers: Doomsday / English
+ACTIVE_PROFILE:
+    SANITY_TEST -> Ramayana / Telugu
+    REAL_DATA   -> Avengers: Doomsday / English
 
-Only theatre codes listed in ACTIVE_THEATRES_FOR_ALERT are monitored.
+Only theatre codes in active_theatres_for_alert are monitored.
 """
 
 # ============================================================
@@ -13,7 +12,6 @@ Only theatre codes listed in ACTIVE_THEATRES_FOR_ALERT are monitored.
 # ============================================================
 
 ACTIVE_PROFILE = "SANITY_TEST"
-# ACTIVE_PROFILE = "REAL_DATA"
 
 active_theatres_for_alert = ["AC", "PCX", "ART", "AAA"]
 
@@ -21,30 +19,24 @@ REGION_CODE = "HYD"
 REGION_SLUG = "hyderabad"
 
 API_URL = "https://in.bookmyshow.com/api/v3/mobile/showtimes/byvenue"
-REQUEST_TIMEOUT = 20
+REQUEST_TIMEOUT = 20  # Retained for compatibility with local diagnostics.
+SCRAPERAPI_TIMEOUT = 90
 
 
 # ============================================================
-# SANITY TEST CONFIGURATION
-# Add the date on which you want to test Ramayana Telugu.
-# Date format: YYYYMMDD
+# SANITY TEST
 # ============================================================
 
 SANITY_TEST = {
-    "movie_title": "Scene",
+    "movie_title": "Ramayana",
     "movie_aliases": [],
     "language": "Telugu",
-    "target_dates": [
-        "20261116", 
-        # Example: "20261115"
-    ],
+    "target_dates": ["20261116"],
 }
 
 
 # ============================================================
-# REAL MONITORING CONFIGURATION
-# Avengers: Doomsday - English in any English variant.
-# English 3D / English Dolby 3D are accepted too.
+# REAL MONITORING
 # ============================================================
 
 REAL_DATA = {
@@ -54,21 +46,12 @@ REAL_DATA = {
         "Avengers: Doomsday",
     ],
     "language": "English",
-    "target_dates": [
-        "20261218",
-        "20261219",
-    ],
+    "target_dates": ["20261218", "20261219"],
 }
 
 
 # ============================================================
-# THEATRE / PREMIUM SCREEN MATCHING RULES
-#
-# PCX includes TWO distinct formats at Prasads:
-#   - PCX
-#   - HDR by Barco
-#
-# These are separate targets but share venue code PRHN.
+# THEATRE / PREMIUM FORMAT TARGETS
 # ============================================================
 
 THEATRE_TARGETS = {
@@ -81,7 +64,6 @@ THEATRE_TARGETS = {
             "match_type": "DOLBY_CINEMA",
         },
     ],
-
     "PCX": [
         {
             "target_id": "prasads_pcx",
@@ -98,7 +80,6 @@ THEATRE_TARGETS = {
             "match_type": "HDR_BY_BARCO",
         },
     ],
-
     "ART": [
         {
             "target_id": "art_epiq",
@@ -108,7 +89,6 @@ THEATRE_TARGETS = {
             "match_type": "EPIQ",
         },
     ],
-
     "AAA": [
         {
             "target_id": "aaa_led",
