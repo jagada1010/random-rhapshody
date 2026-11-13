@@ -708,210 +708,323 @@ def send_success_email(shows: list, movie_title: str) -> None:
 
 
 # ============================================================
-# MONITOR SCHEDULE + STATE-AWARE ALERTS
+# PROFILE STATE KEY
 # ============================================================
 
-def _parse_clock(value: str, variable_name: str) -> tuple[int, int]:
-    try:
-        hour_text, minute_text = value.split(":", 1)
-        hour, minute = int(hour_text), int(minute_text)
-        if not (0 <= hour <= 23 and 0 <= minute <= 59):
-            raise ValueError
-        return hour, minute
-    except (ValueError, AttributeError):
-        raise ValueError(
-            f"{variable_name} must use HH:MM 24-hour format; got {value!r}."
-        )
-
-
-def is_sleep_window(now: datetime) -> bool:
-    """Check the configured local sleep window, including overnight windows."""
-    start_text = os.getenv("BMS_SLEEP_START", "23:00")
-    end_text = os.getenv("BMS_SLEEP_END", "07:00")
-    start_hour, start_minute = _parse_clock(start_text, "BMS_SLEEP_START")
-    end_hour, end_minute = _parse_clock(end_text, "BMS_SLEEP_END")
-    start = now.replace(hour=start_hour, minute=start_minute, second=0, microsecond=0)
-    end = now.replace(hour=end_hour, minute=end_minute, second=0, microsecond=0)
-    if start == end:
-        raise ValueError("BMS_SLEEP_START and BMS_SLEEP_END cannot be the same time.")
-    if start < end:
-        return start <= now < end
-    return now >= start or now < end
-
-
-def send_state_email(shows: list, movie_title: str, subject: str, body: str) -> None:
-    sender = os.getenv("BMS_EMAIL_SENDER")
-    recipients_raw = os.getenv("BMS_EMAIL_RECIPIENTS", "")
-    recipients = [address.strip() for address in re.split(r"[,;]", recipients_raw) if address.strip()]
-    app_password = os.getenv("BMS_GMAIL_APP_PASSWORD", "").replace(" ", "")
-
-    if not sender:
-        raise ValueError("BMS_EMAIL_SENDER is missing from GitHub Secrets/.env.")
-    if not recipients:
-        raise ValueError("BMS_EMAIL_RECIPIENTS is missing from GitHub Secrets/.env.")
-    if not app_password:
-        raise ValueError("BMS_GMAIL_APP_PASSWORD is missing from GitHub Secrets/.env.")
-
-    message = EmailMessage()
-    message["Subject"] = subject
-    message["From"] = sender
-    message["To"] = ", ".join(recipients)
-    message.set_content(body)
-    # Preserve the existing clickable HTML booking-link presentation.
-    if shows and not subject.startswith("BOOKMYSHOW SLEEP UPDATE:"):
-        message.add_alternative(build_email_html(shows, movie_title), subtype="html")
-
-    print(f"Sending email to {len(recipients)} recipient(s)...")
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
-        server.login(sender, app_password)
-        server.send_message(message, from_addr=sender, to_addrs=recipients)
-    print("SUCCESS: Email notification sent.")
-
-
 def _profile_state_key(profile: dict, targets: list) -> str:
-    """Keep SANITY_TEST and REAL_DATA archives separate, without deleting either."""
+    """
+    Keep SANITY_TEST and REAL_DATA archives separate.
+
+    Dates are intentionally excluded so adding/removing target dates
+    does not create a new archive or erase previous history.
+    """
     payload = {
-        # Dates are deliberately excluded: extending the target date list must
-        # not split or discard the cumulative history for the same movie.
         "movie_title": normalize(profile["movie_title"]),
         "language": normalize(profile["language"]),
-        "target_ids": sorted(target["target_id"] for target in targets),
+        "target_ids": sorted(
+            target["target_id"] for target in targets
+        ),
     }
-    return json.dumps(payload, sort_keys=True, ensure_ascii=False)
+
+    return json.dumps(
+        payload,
+        sort_keys=True,
+        ensure_ascii=False,
+    )
 
 
-def _archive_email_body(movie_title: str, archive: list, changes: list, now: datetime) -> str:
-    lines = [
-        f"BOOKMYSHOW SLEEP-HOUR UPDATE: {movie_title}",
-        f"Generated: {now.strftime('%d %b %Y, %I:%M %p %Z')}",
-        f"CUMULATIVE ARCHIVE: {len(archive)} session(s) ever detected for this profile.",
-        "Older records are retained; 'Not currently listed' means the session was absent from the latest successful API snapshot.",
-        "",
-        "NEW / CHANGED SINCE THE PREVIOUS ALERT",
-        "=" * 62,
-    ]
-    if not changes:
-        lines.append("No new or changed sessions are pending.")
-    for item in changes:
-        show = item.get("show", {})
-        lines.append(
-            f"[{item.get('type', 'change').upper()}] {show.get('theatre_name', 'Theatre')} | "
-            f"{show.get('date', '')} | {show.get('screen', '')} | {show.get('time', '')}"
-        )
-        if item.get("type") == "updated":
-            lines.append(f"  Changed fields: {', '.join(item.get('changed_fields', []))}")
-        lines.append(f"  Booking: {get_booking_url(show)}")
-    lines.extend(["", "FULL CUMULATIVE SESSION ARCHIVE", "=" * 62])
-    for record in sorted(archive, key=lambda x: (x.get("date", ""), x.get("theatre_name", ""), str(x.get("time", "")))):
-        status = "Currently listed" if record.get("status") == "currently_listed" else "Not currently listed"
-        lines.extend([
-            f"{record.get('theatre_name', 'Theatre')} | {record.get('format_label', '')}",
-            f"  Date: {record.get('date', '')} | Time: {record.get('time', '')} | Screen: {record.get('screen', '')}",
-            f"  Status: {status} | First seen: {record.get('first_seen', '')} | Last seen: {record.get('last_seen', '')} | Last change: {record.get('last_change', '')}",
-            f"  Booking: {get_booking_url(record)}",
-            "",
-        ])
-    lines.extend([
-        "-" * 62,
-        "Automated BookMyShow show-identification alert.",
-        "A matching session is not a guarantee of seat availability; verify on BookMyShow.",
-    ])
-    return "\n".join(lines)
-
+# ============================================================
+# MAIN MONITOR
+# ============================================================
 
 def main() -> None:
     profile = get_active_profile()
     targets = get_active_targets()
+
     movie_title = profile["movie_title"]
     target_dates = profile["target_dates"]
 
     if not target_dates:
-        raise ValueError(f"{config.ACTIVE_PROFILE}.target_dates is empty.")
+        raise ValueError(
+            f"{config.ACTIVE_PROFILE}.target_dates is empty."
+        )
+
     for target_date in target_dates:
         if not validate_date_format(target_date):
-            raise ValueError(f"Invalid date: {target_date}. Use YYYYMMDD format.")
-    if len(target_dates) != len(set(target_dates)):
-        raise ValueError("target_dates contains duplicate dates.")
+            raise ValueError(
+                f"Invalid date: {target_date}. Use YYYYMMDD format."
+            )
 
-    venue_codes = list(dict.fromkeys(target["venue_code"] for target in targets))
+    if len(target_dates) != len(set(target_dates)):
+        raise ValueError(
+            "target_dates contains duplicate dates."
+        )
+
+    venue_codes = list(dict.fromkeys(
+        target["venue_code"] for target in targets
+    ))
+
     print("\n" + "=" * 65)
     print(f"ACTIVE PROFILE: {config.ACTIVE_PROFILE}")
     print(f"MOVIE: {movie_title}")
     print(f"LANGUAGE: {profile['language']}")
-    print(f"ACTIVE THEATRE CODES: {config.active_theatres_for_alert}")
+    print(
+        f"ACTIVE THEATRE CODES: "
+        f"{config.active_theatres_for_alert}"
+    )
     print(f"TARGET DATES: {target_dates}")
     print(f"VENUES TO FETCH: {venue_codes}")
     print("=" * 65)
 
     all_shows = []
-    # Do not update state until EVERY requested date/venue has returned valid data.
-    for target_date in target_dates:
-        print(f"\n{'=' * 65}\nCHECKING DATE: {target_date}\n{'=' * 65}")
-        for venue_code in venue_codes:
-            data = fetch_showtimes(target_date, venue_code)
-            matching_details = validate_response_date(data, target_date, venue_code)
-            venue_targets = [target for target in targets if target["venue_code"] == venue_code]
-            for target in venue_targets:
-                shows = identify_shows(matching_details, target_date, target, profile)
-                if shows:
-                    print(f"\n{target['theatre_name']} - {target['format_label']}: {len(shows)} matching session(s)")
-                    print_results(shows)
-                all_shows.extend(shows)
+    successful_scopes = set()
+    failed_scopes = []
 
-    unique_shows, seen = [], set()
+    # Each venue/date is an independent scope.
+    # A failure in one scope must not prevent other scopes from updating.
+    for target_date in target_dates:
+        print(
+            f"\n{'=' * 65}\n"
+            f"CHECKING DATE: {target_date}\n"
+            f"{'=' * 65}"
+        )
+
+        for venue_code in venue_codes:
+            scope_label = f"{venue_code} / {target_date}"
+
+            try:
+                data = fetch_showtimes(
+                    target_date,
+                    venue_code,
+                )
+
+                matching_details = validate_response_date(
+                    data,
+                    target_date,
+                    venue_code,
+                )
+
+                venue_targets = [
+                    target
+                    for target in targets
+                    if target["venue_code"] == venue_code
+                ]
+
+                scope_shows = []
+
+                for target in venue_targets:
+                    shows = identify_shows(
+                        matching_details,
+                        target_date,
+                        target,
+                        profile,
+                    )
+
+                    if shows:
+                        print(
+                            f"\n{target['theatre_name']} - "
+                            f"{target['format_label']}: "
+                            f"{len(shows)} matching session(s)"
+                        )
+                        print_results(shows)
+
+                    scope_shows.extend(shows)
+
+                # Mark the scope successful only after fetching,
+                # validating and identifying all its configured targets.
+                successful_scopes.add(
+                    (venue_code, target_date)
+                )
+                all_shows.extend(scope_shows)
+
+                print(
+                    f"SUCCESS: {scope_label} validated. "
+                    f"{len(scope_shows)} matching session(s)."
+                )
+
+            except Exception as exc:
+                failed_scopes.append({
+                    "venue_code": venue_code,
+                    "date": target_date,
+                    "error": str(exc),
+                })
+
+                print(
+                    f"\nWARNING: Failed to process {scope_label}."
+                )
+                print(f"Reason: {exc}")
+                print(
+                    "Previous state for this venue/date will be "
+                    "preserved. Continuing with other venues."
+                )
+
+    # If every scope failed, do not touch persistent state.
+    if not successful_scopes:
+        details = "; ".join(
+            f"{item['venue_code']}/{item['date']}: {item['error']}"
+            for item in failed_scopes
+        )
+
+        raise RuntimeError(
+            "All venue/date requests failed validation or fetching. "
+            "Persistent state was not modified. "
+            f"Failures: {details}"
+        )
+
+    # Deduplicate sessions.
+    unique_shows = []
+    seen = set()
+
     for show in all_shows:
-        key = (show["target_id"], show["date"], str(show["session_id"]))
+        key = (
+            show["target_id"],
+            show["date"],
+            str(show["session_id"]),
+        )
+
         if key not in seen:
             seen.add(key)
             unique_shows.append(show)
 
-    print(f"\nTOTAL MATCHING SESSIONS: {len(unique_shows)}")
-    timezone_name = os.getenv("BMS_TIMEZONE", "Asia/Kolkata")
-    now = datetime.now(ZoneInfo(timezone_name))
-    state_file = Path(os.getenv("BMS_STATE_FILE", "state/state.json"))
-    state = MonitorState(state_file)
-    profile_key = _profile_state_key(profile, targets)
-    result = state.record_successful_snapshot(profile_key, unique_shows, now)
+    print("\n" + "=" * 65)
+    print(f"TOTAL MATCHING SESSIONS: {len(unique_shows)}")
+    print(
+        f"SUCCESSFUL VENUE/DATE SCOPES: "
+        f"{len(successful_scopes)}"
+    )
+    print(
+        f"FAILED VENUE/DATE SCOPES: "
+        f"{len(failed_scopes)}"
+    )
+    print("=" * 65)
 
-    sleeping = is_sleep_window(now)
-    if sleeping:
-        if not result["pending_changes"]:
-            print("Sleep window: no new/changed sessions pending; no email.")
-            return
-        last_sent = result.get("last_sleep_email_at")
-        if last_sent:
-            last_dt = datetime.fromisoformat(last_sent)
-            if now - last_dt < timedelta(hours=1):
-                print("Sleep window: hourly email limit has not elapsed; no email.")
-                return
-        archive = result["archive"]
-        changes = result["pending_changes"]
-        body = _archive_email_body(movie_title, archive, changes, now)
-        subject = f"BOOKMYSHOW SLEEP UPDATE: {movie_title} | {len(archive)} archived session(s)"
-        send_state_email(archive, movie_title, subject, body)
-        state.mark_sleep_alert_sent(profile_key, now)
+    if failed_scopes:
+        print("\nPARTIAL FETCH WARNING:")
+        for item in failed_scopes:
+            print(
+                f"  - {item['venue_code']} / {item['date']}: "
+                f"{item['error']}"
+            )
+
+    timezone_name = os.getenv(
+        "BMS_TIMEZONE",
+        "Asia/Kolkata",
+    )
+    now = datetime.now(ZoneInfo(timezone_name))
+
+    state_file = Path(
+        os.getenv(
+            "BMS_STATE_FILE",
+            "state/state.json",
+        )
+    )
+
+    state = MonitorState(state_file)
+
+    profile_key = _profile_state_key(
+        profile,
+        targets,
+    )
+
+    # Commit only validated scopes. Failed scopes are untouched.
+    result = state.record_partial_snapshot(
+        profile_key=profile_key,
+        shows=unique_shows,
+        successful_scopes=successful_scopes,
+        now=now,
+    )
+
+    print(
+        f"\nPersistent state updated: {state_file}"
+    )
+    print(
+        f"Archived sessions: {len(result['archive'])}"
+    )
+    print(
+        f"Pending notification changes: "
+        f"{len(result['pending_changes'])}"
+    )
+
+    # No pending new/reappeared/updated sessions means no email.
+    # This applies 24/7; there is no sleep-hour throttle.
+    if not result["pending_changes"]:
+        print(
+            "\nNo new, reappeared or changed sessions. "
+            "No email will be sent."
+        )
         return
 
-    # Awake window: current matching snapshot every workflow run (10 minutes).
-    if unique_shows:
-        send_success_email(unique_shows, movie_title)
-        state.clear_pending_changes(profile_key)
-    else:
-        print("Awake window: no matching sessions. No email will be sent.")
+    # Email contains all currently listed sessions for the dates
+    # configured in this run, not just the latest delta.
+    #
+    # This also includes last-known sessions from failed scopes,
+    # because their previous state is deliberately preserved.
+    active_dates = {str(date) for date in target_dates}
+
+    current_shows = [
+        record
+        for record in result["archive"]
+        if (
+            record.get("status") == "currently_listed"
+            and str(record.get("date", "")) in active_dates
+        )
+    ]
+
+    current_shows.sort(
+        key=lambda show: (
+            str(show.get("date", "")),
+            str(show.get("theatre_name", "")),
+            str(show.get("screen", "")),
+            str(show.get("time", "")),
+        )
+    )
+
+    print(
+        f"\nChanges detected: "
+        f"{len(result['pending_changes'])}"
+    )
+    print(
+        f"Currently listed sessions included in email: "
+        f"{len(current_shows)}"
+    )
+
+    if failed_scopes:
+        print(
+            "NOTE: The email may include last-known sessions "
+            "from venue/date scopes that failed during this run."
+        )
+
+    # Send at most one email per run.
+    # If SMTP fails, pending_changes are NOT cleared.
+    send_success_email(
+        current_shows,
+        movie_title,
+    )
+
+    # Clear pending changes only after successful email delivery.
+    state.clear_pending_changes(profile_key)
+
+    print(
+        "Notification changes cleared after successful email delivery."
+    )
 
 
 if __name__ == "__main__":
     try:
         main()
+
     except requests.exceptions.HTTPError as exc:
         print(f"\nHTTP error: {exc}")
         raise SystemExit(1)
+
     except requests.exceptions.RequestException as exc:
         print(f"\nNetwork error: {exc}")
         raise SystemExit(1)
+
     except (RuntimeError, ValueError, json.JSONDecodeError) as exc:
         print(f"\nConfiguration/data error: {exc}")
         raise SystemExit(1)
+
     except (smtplib.SMTPException, OSError) as exc:
         print(f"\nEmail/state operation failed: {exc}")
         raise SystemExit(1)
