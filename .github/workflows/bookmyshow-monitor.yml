@@ -2,20 +2,26 @@ name: BookMyShow Monitor
 
 on:
   schedule:
-    - cron: "*/5 * * * *"
-
+    # GitHub cron uses UTC. Every 10 minutes, including during sleep hours.
+    - cron: "*/10 * * * *"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+
+concurrency:
+  group: bookmyshow-monitor
+  cancel-in-progress: false
 
 jobs:
   monitor:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 10
     steps:
-      - name: Checkout repository
+      - name: Check out application code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -23,12 +29,50 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
 
-      - name: Run BookMyShow monitor
+      - name: Prepare persistent state branch
+        shell: bash
+        run: |
+          if git ls-remote --exit-code --heads origin monitor-state >/dev/null 2>&1; then
+            git fetch origin +refs/heads/monitor-state:refs/remotes/origin/monitor-state
+            git worktree add -B monitor-state .monitor-state refs/remotes/origin/monitor-state
+          else
+            git worktree add --orphan -b monitor-state .monitor-state
+          fi
+
+      - name: Run monitor
+        id: monitor
+        continue-on-error: true
         env:
           BMS_EMAIL_SENDER: ${{ secrets.BMS_EMAIL_SENDER }}
           BMS_EMAIL_RECIPIENTS: ${{ secrets.BMS_EMAIL_RECIPIENTS }}
           BMS_GMAIL_APP_PASSWORD: ${{ secrets.BMS_GMAIL_APP_PASSWORD }}
+          BMS_STATE_FILE: ${{ github.workspace }}/.monitor-state/state.json
+          BMS_TIMEZONE: Asia/Kolkata
+          BMS_SLEEP_START: "23:00"
+          BMS_SLEEP_END: "07:00"
         run: python main.py
+
+      - name: Persist state archive
+        if: always()
+        shell: bash
+        run: |
+          cd .monitor-state
+          if [ ! -f state.json ]; then
+            echo "No state file exists (no successful validated snapshot yet)."
+            exit 0
+          fi
+          git add state.json
+          if ! git diff --cached --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Update BookMyShow monitor state"
+            git push origin HEAD:refs/heads/monitor-state
+          else
+            echo "No state changes to persist."
+          fi
+
+      - name: Fail workflow if monitor failed
+        if: steps.monitor.outcome == 'failure'
+        run: exit 1
