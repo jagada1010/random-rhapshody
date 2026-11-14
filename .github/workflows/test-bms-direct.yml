@@ -1,0 +1,48 @@
+
+name: Test Direct BookMyShow Access
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "test_bms_direct.py"
+      - ".github/workflows/test-bms-direct.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  direct-test:
+    name: Test GitHub Runner to BMS
+    runs-on: ubuntu-latest
+
+    timeout-minutes: 3
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run direct BMS test
+        env:
+          BMS_TEST_VENUE: ALUC
+          BMS_TEST_DATE: "20261116"
+        run: python -u test_bms_direct.py
+
+      - name: Upload diagnostic result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bms-direct-test-result
+          path: bms_test_result.json
+          if-no-files-found: ignore
+          retention-days: 3
