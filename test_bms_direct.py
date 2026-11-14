@@ -96,6 +96,22 @@ def test_bms():
 
         try:
             data = response.json()
+            print("\n========== RESPONSE STRUCTURE ==========")
+
+            print("Request URL:")
+            print(response.url)
+
+            print("\nTop-level keys:")
+            print(list(data.keys()))
+
+            print("\nShowDetails:")
+            print(json.dumps(
+                data.get("ShowDetails"),
+                indent=2,
+                ensure_ascii=False
+            )[:12000])
+
+            print("\n========================================")
         except ValueError:
             print("FAIL: Response is not valid JSON.")
             print("Response preview:")
