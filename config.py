@@ -11,16 +11,18 @@ Only theatre codes in active_theatres_for_alert are monitored.
 # GENERAL SETTINGS
 # ============================================================
 
-ACTIVE_PROFILE = "SANITY_TEST"
+ACTIVE_PROFILE = "REAL_DATA"
 
-active_theatres_for_alert = ["AC", "PCX", "ART", "AAA"]
+# active_theatres_for_alert = ["AC", "PCX", "ART", "AAA"]
+
+active_theatres_for_alert = ["AC", "PCX"]
 
 REGION_CODE = "HYD"
 REGION_SLUG = "hyderabad"
 
 API_URL = "https://in.bookmyshow.com/api/v3/mobile/showtimes/byvenue"
 REQUEST_TIMEOUT = 20  # Retained for compatibility with local diagnostics.
-SCRAPERAPI_TIMEOUT = 90
+# SCRAPERAPI_TIMEOUT = 90 - Removed ScraperAPI timeout since direct fetch is used now.
 
 
 # ============================================================
@@ -44,9 +46,11 @@ REAL_DATA = {
     "movie_aliases": [
         "Avengers Doomsday",
         "Avengers: Doomsday",
+        "Avengers",
+        "Doomsday",
     ],
     "language": "English",
-    "target_dates": ["20261218", "20261219"],
+    "target_dates": ["20261218"],
 }
 
 

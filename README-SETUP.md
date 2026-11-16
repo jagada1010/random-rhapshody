@@ -70,3 +70,11 @@ Only theatre codes in `active_theatres_for_alert` are monitored. Every qualifyin
 With all four theatre codes enabled and two target dates, the monitor makes up to 8 ScraperAPI requests per run (PRHN is fetched once even though it has two format targets). At six runs per hour, that is up to 48 requests per hour or 1,152 per day. Check your ScraperAPI plan/credit allowance before enabling continuous monitoring.
 
 GitHub scheduled runs can be delayed; the 10-minute cron is not an exact real-time guarantee.
+
+
+state.json:
+
+{
+  "version": 1,
+  "profiles": {}
+}

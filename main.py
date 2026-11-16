@@ -164,8 +164,9 @@ def validate_response_date(
 # BOOKMYSHOW API
 # ============================================================
 
+
 def fetch_showtimes(target_date: str, venue_code: str) -> dict:
-    """Fetch one venue/date through ScraperAPI and return BookMyShow JSON."""
+    """Fetch one venue/date directly from BookMyShow."""
 
     params = {
         "dateCode": target_date,
@@ -175,13 +176,13 @@ def fetch_showtimes(target_date: str, venue_code: str) -> dict:
 
     print(
         f"Fetching {venue_code} for {target_date} "
-        "through ScraperAPI..."
+        "directly from BookMyShow..."
     )
 
     data = fetch_json(
         target_url=config.API_URL,
         params=params,
-        timeout=getattr(config, "SCRAPERAPI_TIMEOUT", 90),
+        timeout=getattr(config, "REQUEST_TIMEOUT", 30),
     )
 
     print(f"Successfully received JSON for {venue_code} / {target_date}.")
