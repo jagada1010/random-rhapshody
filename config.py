@@ -5,6 +5,14 @@ ACTIVE_PROFILE:
     REAL_DATA   -> Avengers: Doomsday / English
 
 Only theatre codes in active_theatres_for_alert are monitored.
+
+Matching configuration:
+    format_label: list of accepted text variants from BookMyShow.
+    match_type:   list of matching modes; values are PARTIAL, EXACT or WORD.
+    match_fields: JSON fields to inspect for the format variants.
+
+Matching behaviour is OR-based: any configured format_label matching any
+configured field using any configured match_type is sufficient.
 """
 
 # ============================================================
@@ -13,16 +21,14 @@ Only theatre codes in active_theatres_for_alert are monitored.
 
 ACTIVE_PROFILE = "REAL_DATA"
 
-# active_theatres_for_alert = ["AC", "PCX", "ART", "AAA"]
-
+# Only these theatre codes are fetched and included in alerts.
 active_theatres_for_alert = ["AC", "PCX"]
 
 REGION_CODE = "HYD"
 REGION_SLUG = "hyderabad"
 
 API_URL = "https://in.bookmyshow.com/api/v3/mobile/showtimes/byvenue"
-REQUEST_TIMEOUT = 20  # Retained for compatibility with local diagnostics.
-# SCRAPERAPI_TIMEOUT = 90 - Removed ScraperAPI timeout since direct fetch is used now.
+REQUEST_TIMEOUT = 20
 
 
 # ============================================================
@@ -61,11 +67,29 @@ REAL_DATA = {
 THEATRE_TARGETS = {
     "AC": [
         {
+            # Keep the existing target_id so the profile's state key remains
+            # compatible with the existing archive.
             "target_id": "allu_dolby_cinema",
             "theatre_name": "Allu Cinemas",
             "venue_code": "ALUC",
-            "format_label": "Dolby Cinema",
-            "match_type": "DOLBY_CINEMA",
+            "display_label": "Dolby Cinema / MS Infinity Vision",
+            "format_label": [
+                "DOLBY CINEMA",
+                "DOLBY 3D",
+                "VISION",
+                "DOLBY",
+                "DOLBY CINEMA 3D",
+                "MS-INFINITY VSN",
+                "MS-INFINITY VSN 3D",
+                "INFINITY",
+                "INF VSN",
+                "VSN",
+                "MS-INFINITY VISION",
+                "MS - Infinity Vision",
+                "MS-INFINITY VISION 3D",
+            ],
+            "match_type": ["PARTIAL"],
+            "match_fields": ["Attributes", "EventDimension", "EventName"],
         },
     ],
     "PCX": [
@@ -73,15 +97,33 @@ THEATRE_TARGETS = {
             "target_id": "prasads_pcx",
             "theatre_name": "Prasads Multiplex",
             "venue_code": "PRHN",
-            "format_label": "PCX",
-            "match_type": "PCX",
+            "display_label": "PCX",
+            "format_label": ["PCX Screen",                 "MS-INFINITY VSN",
+                "MS-INFINITY VSN 3D",
+                "INFINITY",
+                "INF VSN",
+                "VSN",
+                "MS-INFINITY VISION",
+                "MS - Infinity Vision",
+                "MS-INFINITY VISION 3D",],
+            "match_type": ["PARTIAL"],
+            "match_fields": ["Attributes"],
         },
         {
             "target_id": "prasads_hdr_by_barco",
             "theatre_name": "Prasads Multiplex",
             "venue_code": "PRHN",
-            "format_label": "HDR by Barco",
-            "match_type": "HDR_BY_BARCO",
+            "display_label": "HDR by Barco",
+            "format_label": ["HDR by Barco",                "MS-INFINITY VSN",
+                "MS-INFINITY VSN 3D",
+                "INFINITY",
+                "INF VSN",
+                "VSN",
+                "MS-INFINITY VISION",
+                "MS - Infinity Vision",
+                "MS-INFINITY VISION 3D",],
+            "match_type": ["PARTIAL"],
+            "match_fields": ["EventDimension", "EventName"],
         },
     ],
     "ART": [
@@ -89,8 +131,11 @@ THEATRE_TARGETS = {
             "target_id": "art_epiq",
             "theatre_name": "ART Cinemas, Vanasthalipuram",
             "venue_code": "ACEV",
-            "format_label": "EPIQ",
-            "match_type": "EPIQ",
+            "display_label": "EPIQ",
+            "format_label": ["EPIQ"],
+            "match_type": ["PARTIAL"],
+            "match_fields": ["Attributes", "EventDimension", "ScreenName"],
+            "reject_conflicting_attributes": True,
         },
     ],
     "AAA": [
@@ -98,8 +143,10 @@ THEATRE_TARGETS = {
             "target_id": "aaa_led",
             "theatre_name": "AAA Cinemas, Ameerpet",
             "venue_code": "ACAS",
-            "format_label": "LED",
-            "match_type": "LED",
+            "display_label": "LED",
+            "format_label": ["LED"],
+            "match_type": ["WORD"],
+            "match_fields": ["Attributes"],
         },
     ],
 }

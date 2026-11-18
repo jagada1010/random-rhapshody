@@ -145,9 +145,7 @@ def fetch_json(
                     response.raise_for_status()
                 delay = 3 * (2 ** network_attempt)
                 network_attempt += 1
-                print(
-                    f"BMS server error. Retrying in {delay} seconds..."
-                )
+                print(f"BMS server error. Retrying in {delay} seconds...")
                 time.sleep(delay)
                 continue
 

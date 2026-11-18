@@ -160,6 +160,80 @@
       "pending_changes": [],
       "last_sleep_email_at": null,
       "last_successful_run": "2026-11-16T20:46:42+05:30"
+    },
+    "{\"language\": \"english\", \"movie_title\": \"avengers doomsday\", \"target_ids\": [\"allu_dolby_cinema\", \"prasads_hdr_by_barco\", \"prasads_pcx\"]}": {
+      "initialized": true,
+      "archive": {
+        "allu_dolby_cinema|20261218|7047": {
+          "target_id": "allu_dolby_cinema",
+          "theatre_name": "Allu Cinemas",
+          "venue_code": "ALUC",
+          "format_label": [
+            "DOLBY CINEMA",
+            "DOLBY 3D",
+            "VISION",
+            "DOLBY",
+            "DOLBY CINEMA 3D",
+            "MS-INFINITY VSN",
+            "MS-INFINITY VSN 3D",
+            "INFINITY",
+            "INF VSN",
+            "VSN",
+            "MS-INFINITY VISION",
+            "MS - Infinity Vision",
+            "MS-INFINITY VISION 3D"
+          ],
+          "movie": "Avengers: Doomsday",
+          "language": "English",
+          "dimension": "MS-Infinity Vsn 3d",
+          "event_code": "ET00526306",
+          "session_id": "7047",
+          "date": "20261218",
+          "time": "10:00 AM",
+          "screen": "SCREEN 2",
+          "attributes": "LASER 4K ATMOS",
+          "first_seen": "2026-11-17T13:43:16+05:30",
+          "last_seen": "2026-11-18T10:36:01+05:30",
+          "last_change": "2026-11-17T13:43:16+05:30",
+          "status": "currently_listed"
+        },
+        "allu_dolby_cinema|20261218|7050": {
+          "target_id": "allu_dolby_cinema",
+          "theatre_name": "Allu Cinemas",
+          "venue_code": "ALUC",
+          "format_label": [
+            "DOLBY CINEMA",
+            "DOLBY 3D",
+            "VISION",
+            "DOLBY",
+            "DOLBY CINEMA 3D",
+            "MS-INFINITY VSN",
+            "MS-INFINITY VSN 3D",
+            "INFINITY",
+            "INF VSN",
+            "VSN",
+            "MS-INFINITY VISION",
+            "MS - Infinity Vision",
+            "MS-INFINITY VISION 3D"
+          ],
+          "movie": "Avengers: Doomsday",
+          "language": "English",
+          "dimension": "MS-Infinity Vsn 3d",
+          "event_code": "ET00526306",
+          "session_id": "7050",
+          "date": "20261218",
+          "time": "11:00 PM",
+          "screen": "SCREEN 2",
+          "attributes": "LASER 4K ATMOS",
+          "first_seen": "2026-11-17T15:16:18+05:30",
+          "last_seen": "2026-11-18T10:36:01+05:30",
+          "last_change": "2026-11-17T15:16:18+05:30",
+          "status": "currently_listed"
+        }
+      },
+      "pending_changes": [],
+      "last_sleep_email_at": null,
+      "last_successful_run": "2026-11-18T10:36:01+05:30"
     }
   }
 }

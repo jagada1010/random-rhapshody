@@ -280,6 +280,10 @@ def language_matches(
 # THEATRE-SPECIFIC SCREEN MATCHING
 # ============================================================
 
+# ============================================================
+# THEATRE-SPECIFIC SCREEN MATCHING
+# ============================================================
+
 def matches_target(
     target: dict,
     parent_event: dict,
@@ -287,51 +291,112 @@ def matches_target(
     show: dict,
 ) -> bool:
     """
-    Apply the target's own screen/format identification rule.
+    Match a session against configured format labels and match types.
 
-    Screen names alone are not used for PCX or HDR by Barco because
-    the same physical screen name can also host standard sessions.
+    A session qualifies when any configured format matches any
+    configured field using any configured matching method.
     """
 
-    match_type = target["match_type"]
+    format_labels = target.get("format_label", [])
+    match_types = target.get("match_type", ["PARTIAL"])
+    match_fields = target.get(
+        "match_fields",
+        ["Attributes", "EventDimension", "EventName"],
+    )
 
-    attributes = normalize(show.get("Attributes"))
-    dimension = normalize(child_event.get("EventDimension"))
-    event_name = normalize(child_event.get("EventName"))
-    screen_name = normalize(show.get("ScreenName"))
+    if not isinstance(format_labels, list):
+        raise TypeError("format_label must be a list.")
 
-    if match_type == "DOLBY_CINEMA":
-        return (
-            attributes == normalize("DOLBY CINEMA")
-            or "dolby cinema" in dimension
-            or "dolby cinema" in event_name
+    if not isinstance(match_types, list):
+        raise TypeError("match_type must be a list.")
+
+    if not isinstance(match_fields, list):
+        raise TypeError("match_fields must be a list.")
+
+    if not format_labels or not match_types or not match_fields:
+        return False
+
+    valid_match_types = {"EXACT", "PARTIAL", "WORD"}
+
+    normalized_types = {
+        str(mt).strip().upper()
+        for mt in match_types
+    }
+
+    invalid_types = normalized_types - valid_match_types
+
+    if invalid_types:
+        raise ValueError(
+            f"Invalid match_type values: {sorted(invalid_types)}"
         )
 
-    if match_type == "PCX":
-        return attributes == normalize("PCX Screen")
+    field_map = {
+        "Attributes": str(show.get("Attributes") or ""),
+        "EventDimension": str(child_event.get("EventDimension") or ""),
+        "EventName": str(child_event.get("EventName") or ""),
+        "ScreenName": str(show.get("ScreenName") or ""),
+        "EventTitle": str(parent_event.get("EventTitle") or ""),
+    }
 
-    if match_type == "HDR_BY_BARCO":
-        return (
-            "hdr by barco" in dimension
-            or "hdr by barco" in event_name
+    # Normalize all available fields once.
+    normalized_fields = {
+        field: normalize(value)
+        for field, value in field_map.items()
+    }
+
+    for field_name in match_fields:
+        if field_name not in normalized_fields:
+            raise ValueError(
+                f"Unsupported match field: {field_name}"
+            )
+
+    # Preserve the existing conflicting-attribute safeguard,
+    # but apply it only when Attributes actually contains a
+    # recognizable conflicting premium-format identifier.
+    reject_conflicting = target.get(
+        "reject_conflicting_attributes", False
+    )
+
+    if reject_conflicting:
+        norm_attr = normalized_fields["Attributes"]
+
+        known_conflicts = target.get(
+            "conflicting_attributes", []
         )
 
-    if match_type == "EPIQ":
-        # Reject known conflicting attributes.
-        if attributes and "epiq" not in attributes:
-            return False
+        for conflict in known_conflicts:
+            norm_conflict = normalize(conflict)
 
-        return (
-            "epiq" in attributes
-            or "epiq" in dimension
-            or "epiq" in screen_name
-        )
+            if norm_conflict and norm_conflict in norm_attr:
+                return False
 
-    if match_type == "LED":
-        return "led" in attributes.split()
+    for fmt in format_labels:
+        norm_fmt = normalize(str(fmt))
 
-    raise ValueError(f"Unknown match_type: {match_type}")
+        if not norm_fmt:
+            continue
 
+        for field_name in match_fields:
+            norm_val = normalized_fields[field_name]
+
+            if not norm_val:
+                continue
+
+            for match_type in normalized_types:
+
+                if match_type == "EXACT":
+                    if norm_fmt == norm_val:
+                        return True
+
+                elif match_type == "PARTIAL":
+                    if norm_fmt in norm_val:
+                        return True
+
+                elif match_type == "WORD":
+                    if norm_fmt in norm_val.split():
+                        return True
+
+    return False
 
 # ============================================================
 # SHOW IDENTIFICATION
